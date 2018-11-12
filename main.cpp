@@ -7,6 +7,114 @@ using namespace std;
 using namespace graphics_framework;
 using namespace glm;
 
+struct node
+{
+	vec3 pos;
+	vec3 att_dir = vec3(0.0f); // Attraction direction
+	node *parent;
+	vector<node*> children;
+
+	//mesh m; ////////////////////////////////////////////////////////////////////////temp
+
+
+	node(vec3 pos)
+	{
+		this->pos = pos;
+		//m = mesh(geometry(geometry_builder().create_box(vec3(0.05f))));///////////////////////////////// temp
+	}
+
+	// Gets a node based on a number of iterations needed to reach it. Does not return the same element if the tree has been modified in any way
+	node *get(int i)
+	{
+		if (i == 0)
+			return this;
+		for (int j = 0; j < children.size(); j++)
+		{
+			node *n = children[j]->get(i - j - 1);
+			if (n != nullptr)
+				return n;
+		}
+		return nullptr;
+	}
+
+	// Returns the number of nodes in the tree
+	int size()
+	{
+		int s = 0;
+		return size(s);
+	}
+
+private:
+	int size(int &s)
+	{
+		for (node *n : children)
+			n->size(s);
+		return ++s;
+	}
+
+public:
+
+	//void render()
+	//{
+	//	renderer::render(m);
+	//	for (node *n : children)
+	//		n->render();
+	//}
+
+	// Sets all attraction direction points to 0
+	void clear_attractions()
+	{
+		att_dir = vec3(0.0f);
+		for (node *n : children)
+			n->clear_attractions();
+	}
+
+	// Returns the closest node in the tree
+	node *closest_node(const vec3 &point)
+	{
+		node *closest = this;
+		for (node *n : children)
+		{
+			node *closest_child = n->closest_node(pos);
+			if (length2(point - closest_child->pos) < length2(point - pos))
+				closest = closest_child;
+		}
+		return closest;
+	}
+
+	// Normalises all the attraction direction vectors
+	void normalise_attractions()
+	{
+		if (att_dir != vec3(0.0f))
+			att_dir = normalize(att_dir);
+		for (node *n : children)
+			n->normalise_attractions();
+	}
+
+	// Adds child nodes to nodes that have a non-zero att_dir along that vector at a distance d
+	void colonise_nodes(const float &d)
+	{
+		for (node *n : children)
+			n->colonise_nodes(d);
+		vec3 zero = vec3(0.0f);
+		if (att_dir != zero)
+		{
+			children.push_back(new node(pos + (att_dir * d)));
+		}
+	}
+
+	// Returns whether or not the node is closer to given point thand istance d
+	bool is_closer_than(const vec3 &point, const float &d)
+	{
+		if (length2(point - pos) < d * d)
+			return true;
+		for (node *n : children)
+			if (n->is_closer_than(point, d))
+				return true;
+		return false;
+	}
+};
+
 
 effect eff;
 effect eff_red;
@@ -20,10 +128,19 @@ default_random_engine ran;
 
 geometry screen_quad;
 
-vector<mesh> other_meshes;
-vector<mesh> nodes;
-vector<vec2> envelope_curve;
+
+// Algorithm parameters
 const uint32_t no_points = 400; // Number of attraction points
+const float ri = 3.0f; // Radius of influence
+const float dp = 0.1f; // Node placement distance
+const float dk = 0.5f; // Attraction point kill distance
+
+
+vector<mesh> other_meshes;
+vector<mesh> attraction_points;
+vector<vec2> envelope_curve;
+node *root;
+vector<mesh> tree;
 
 bool initialise()
 {
@@ -73,6 +190,12 @@ void moveCamera(float delta_time)
 	float theta_x = delta_y * ratio_height * mouse_sensitivity;
 
 	cam.rotate(theta_y, -theta_x);
+}
+
+// Calculates PV part of the MVP matrix depending on the camera curently selected
+mat4 calculatePV()
+{
+	return cam.get_projection() * cam.get_view();
 }
 
 // Makes a 2d curve which can later be used to determine if a point is inside the envelope or not. !!Curve should be laid out top to bottom in descending height; all values must be positive!!
@@ -139,10 +262,36 @@ vector<vec3> populate_envelope(const vector<vec2> &curve)
 	return points;
 }
 
-// Calculates PV part of the MVP matrix depending on the camera curently selected
-mat4 calculatePV()
+// Creates a structure representing the tree. The structure is stored in the provided root
+void create_node_tree(vector<vec3> points, node *root)
 {
-	return cam.get_projection() * cam.get_view();
+	while (points.size() > 0)
+	{
+		int size = root->size();
+		root->clear_attractions();
+		// Adds attraction vectors to the tree
+		for (const vec3 &p : points)
+		{
+			node *closest = root->closest_node(p);
+			// Only add attraction if point is within the radius of influence
+			if (length2(p - closest->pos) <= ri * ri)
+				closest->att_dir += normalize(p - closest->pos);
+		}
+		root->normalise_attractions();
+		root->colonise_nodes(dp);
+		// If no nodes arre added add one above the last node
+		if (root->get(size - 1)->pos.y > 8.0f)
+			return;
+		if (size == root->size())
+			root->get(size - 1)->children.push_back(new node(root->get(size - 1)->pos + vec3(0.0f, dp, 0.0f)));
+		// Purge attraction points that are within kill distance
+		for (int i = 0; i < points.size(); i++)
+			if (root->is_closer_than(points[i], dk))
+			{
+				points.erase(points.begin() + i);
+				i--;
+			}
+	}
 }
 
 bool load_content()
@@ -161,14 +310,23 @@ bool load_content()
 	envelope_curve = rotated_curve_envelope();
 	for (const vec2 &v : envelope_curve)
 	{
-		other_meshes.push_back(mesh(geometry(geometry_builder().create_box(vec3(0.05f)))));
+		other_meshes.push_back(mesh(geometry(geometry_builder().create_box(vec3(0.1f)))));
 		other_meshes[other_meshes.size() - 1].get_transform().position = vec3(v, 0.0f);
 	}
 	vector<vec3> points = populate_envelope(envelope_curve);
-	for (const vec3 &v : points)
+	//for (const vec3 &v : points)
+	//{
+	//	attraction_points.push_back(mesh(geometry(geometry_builder().create_box(vec3(0.05f)))));
+	//	attraction_points[attraction_points.size() - 1].get_transform().position = vec3(v);
+	//}
+
+	root = new node(vec3(0.0f));
+	create_node_tree(points, root);
+
+	for (int i = 0; i < root->size(); i++)
 	{
-		nodes.push_back(mesh(geometry(geometry_builder().create_box(vec3(0.05f)))));
-		nodes[nodes.size() - 1].get_transform().position = vec3(v);
+		tree.push_back(mesh(geometry(geometry_builder().create_box(vec3(0.05f)))));
+		tree[i].get_transform().position = root->get(i)->pos;
 	}
 
 	// Load in shaders
@@ -192,21 +350,22 @@ bool load_content()
 
 bool update(float delta_time)
 {
+	// Camera stuff
 	moveCamera(delta_time);
-	// Update the camera
 	cam.update(delta_time);
 	return true;
 }
 
 bool render()
 {
+	mat4 PV = calculatePV();
 	// Bind effect
 	renderer::bind(eff);
 
 	// Render geometry
 	for (mesh m : other_meshes)
 	{
-		mat4 MVP = calculatePV() * m.get_transform().get_transform_matrix();
+		mat4 MVP = PV * m.get_transform().get_transform_matrix();
 		// Set MVP matrix uniform
 		glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
 		renderer::render(m);
@@ -214,13 +373,21 @@ bool render()
 
 	renderer::bind(eff_red);
 	// Render geometry
-	for (mesh m : nodes)
+	for (mesh m : tree)
 	{
-		mat4 MVP = calculatePV() * m.get_transform().get_transform_matrix();
+		mat4 MVP = PV * m.get_transform().get_transform_matrix();
 		// Set MVP matrix uniform
 		glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
 		renderer::render(m);
 	}
+	// Render geometry
+	//for (mesh m : attraction_points)
+	//{
+	//	mat4 MVP = PV * m.get_transform().get_transform_matrix();
+	//	// Set MVP matrix uniform
+	//	glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+	//	renderer::render(m);
+	//}
 	return true;
 }
 
