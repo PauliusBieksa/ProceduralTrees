@@ -163,17 +163,16 @@ private:
 	pair<float, vector<mesh>> create_body_helper()
 	{
 		vector<mesh> v;
-		float scale = 0.01f;
+		float scale = 0.03f;
+		if (this->children.size() > 0)
+			scale = 0.0f;
 		float k = 2.3f;
 		for (node *n : this->children)
 		{
 			pair<float, vector<mesh>> v1 = n->create_body_helper();
 			v.insert(v.end(), v1.second.begin(), v1.second.end());
-			scale = v1.first;
-			if (this->children.size() > 1)
-				scale += powf(scale, k);
 
-			v.push_back(mesh(geometry_builder().create_cylinder(10, 10)));
+			v.push_back(mesh(geometry_builder().create_cylinder(1, 10)));
 			float l = length(this->pos - n->pos);
 			if (l != 0.0f)
 			{
@@ -184,11 +183,16 @@ private:
 				else
 					forward = vec3(normalize(cross(up, vec3(0.0f, 0.0f, 1.0f))));
 				v[v.size() - 1].get_transform().orientation = quatLookAt(forward, up);
-				v[v.size() - 1].get_transform().scale = vec3(scale, l, scale);
+				v[v.size() - 1].get_transform().scale = vec3(v1.first, l, v1.first);
 			}
 			else
-				v[v.size() - 1].get_transform().scale = vec3(scale, scale, scale);
+				v[v.size() - 1].get_transform().scale = vec3(v1.first, v1.first, v1.first);
 			v[v.size() - 1].get_transform().position = (this->pos + n->pos) / 2.0f;
+
+			if (this->children.size() > 1)
+				scale += powf(v1.first, k);
+			else
+				scale = v1.first;
 		}
 		if (this->children.size() > 1)
 			scale = pow(scale, 1.0f / k);
@@ -220,7 +224,7 @@ frame_buffer f_buffer;
 // Algorithm parameters
 const uint32_t no_points = 1500; // Number of attraction points
 const float dp = 0.1f; // Node placement distance
-const float ri = dp * 100.0f;// * dp; // Radius of influence
+const float ri = dp * 20.0f;// * dp; // Radius of influence
 const float dk = dp * 2.0f;// *dp; // Attraction point kill distance
 bool finished = false;
 
@@ -638,7 +642,7 @@ void controls(const float &dt)
 			{
 				if (envelope_curve[envelope_curve.size() - 1].x <= 0.0)
 					break;
-				envelope_curve[envelope_curve.size() - 1] -= vec2(0.5f * dt, 0.0f);
+				envelope_curve[envelope_curve.size() - 1] -= vec2(1.0f * dt, 0.0f);
 				// Handle envelope drawing stuff
 				envelope_segments.clear();
 				envelope.clear();
@@ -647,7 +651,7 @@ void controls(const float &dt)
 			}
 			if (glfwGetKey(renderer::get_window(), GLFW_KEY_RIGHT))
 			{
-				envelope_curve[envelope_curve.size() - 1] += vec2(0.5f * dt, 0.0f);
+				envelope_curve[envelope_curve.size() - 1] += vec2(1.0f * dt, 0.0f);
 				// Handle envelope drawing stuff
 				envelope_segments.clear();
 				envelope.clear();
@@ -658,7 +662,7 @@ void controls(const float &dt)
 			{
 				if (envelope_curve.size() > 1 && envelope_curve[envelope_curve.size() - 1].y >= envelope_curve[envelope_curve.size() - 2].y)
 					break;
-				envelope_curve[envelope_curve.size() - 1] += vec2(0.0f, 0.5f * dt);
+				envelope_curve[envelope_curve.size() - 1] += vec2(0.0f, 1.0f * dt);
 				// Handle envelope drawing stuff
 				envelope_segments.clear();
 				envelope.clear();
@@ -667,7 +671,7 @@ void controls(const float &dt)
 			}
 			if (glfwGetKey(renderer::get_window(), GLFW_KEY_DOWN))
 			{
-				envelope_curve[envelope_curve.size() - 1] -= vec2(0.0f, 0.5f * dt);
+				envelope_curve[envelope_curve.size() - 1] -= vec2(0.0f, 1.0f * dt);
 				// Handle envelope drawing stuff
 				envelope_segments.clear();
 				envelope.clear();
