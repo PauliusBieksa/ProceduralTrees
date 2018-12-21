@@ -29,7 +29,7 @@ void main()
 //	}
 	// directional light properties
 	DirectionalLight light;
-	light.color = vec3(0.5f, 0.5f, 0.5f);
+	light.color = vec3(0.542, 0.269, 0.074);
 	light.direction = vec3(2.0f, 0.5f, 3.7f);
 
     // ambient 
@@ -41,5 +41,6 @@ void main()
 	vec3 diffuse = .2f * max(dot(light.direction, normal),0) * light.color * diffuseIntensity;
 	
 	// final colour
-    color = vec4(ambient + diffuse, 1.0);
+	vec3 intensity = ambient + diffuse;
+    color = vec4(intensity, 1.0);
 }
