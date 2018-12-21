@@ -776,7 +776,7 @@ bool load_content()
 
 	masks["choose_envelope"] = texture("res/textures/choose_crown.png", true, true);
 	masks["define_envelope"] = texture("res/textures/define_crown.png", true, true);
-	masks["gen"] = texture("res/textures/define_crown.png", true, true);
+	masks["gen"] = texture("res/textures/tree.png", true, true);
 
 	// Set camera properties
 	cam.set_position(vec3(0.0f, 3.0f, 10.0f));
@@ -981,7 +981,7 @@ bool render()
 		renderer::bind(eff_mask);
 		renderer::bind(f_buffer.get_frame(), 0);
 		glUniform1i(eff_mask.get_uniform_location("tex"), 0);
-		renderer::bind(masks["gen"], 1); // Change mask /////////////////////////////////////////////////////////////////
+		renderer::bind(masks["gen"], 1);
 		glUniform1i(eff_mask.get_uniform_location("alpha_map"), 1);
 		renderer::render(screen_quad);
 	}
