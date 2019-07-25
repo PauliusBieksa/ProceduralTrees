@@ -5,7 +5,7 @@ then HOME adds volume to the tree
 To build a solution git and CMake are needed
 Getting the repo is needed to get the graphics library as a submodule
 step by step:
-1. Get the repo from https://github.com/riesutelis/ProceduralTrees
+1. Download this repository
 2. Update submodules with: git submodule update --init --recursive
 3. Build the project using CMake
 4. Set the Debugging working directory to $TargetDir in project settings
