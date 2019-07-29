@@ -222,10 +222,10 @@ frame_buffer f_buffer;
 
 
 // Algorithm parameters
-const uint32_t no_points = 1500; // Number of attraction points
-const float dp = 0.1f; // Node placement distance
-const float ri = dp * 20.0f;// * dp; // Radius of influence
-const float dk = dp * 2.0f;// *dp; // Attraction point kill distance
+uint32_t no_points = 3000; // Number of attraction points
+float dp = 0.1f; // Node placement distance
+float ri = dp * 10.0f;// * dp; // Radius of influence
+float dk = dp * 1.6f;// *dp; // Attraction point kill distance
 bool finished = false;
 
 
@@ -276,6 +276,8 @@ bool initialise()
 	glfwSetInputMode(renderer::get_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	// Capture initial mouse position
 	glfwGetCursorPos(renderer::get_window(), &cursor_x, &cursor_y);
+
+	glfwSetWindowTitle(renderer::get_window(), "Procedural tree generation");
 	return true;
 }
 
@@ -994,7 +996,102 @@ bool render()
 	return true;
 }
 
-void main() {
+void main()
+{
+	string choice = "";
+	while (choice != "1" && choice != "2")
+	{
+		cout << "Please select control parameters:" << endl;
+		cout << "1. Default parameters." << endl;
+		cout << "2. Custom parameters." << endl;
+		cin >> choice;
+	}
+
+	if (choice == "2")
+	{
+		no_points = 0;
+
+		// n of points
+		while (true)
+		{
+			cout << "Please enter the number of attraction points (between 1 and 10000):" << endl;
+			cin >> choice;
+			try
+			{
+				no_points = stoi(choice);
+			}
+			catch (const std::exception&)
+			{
+				cout << "Please enter a number with no other characters." << endl;
+			}
+			if (no_points <= 1 || no_points > 10000)
+				cout << "The number entered is outside of the acceptable range." << endl;
+			else
+				break;
+		}
+		// Node placement distance
+		while (true)
+		{
+			cout << "Please enter the node displacement distance (between 0.01 and 10):" << endl;
+			cin >> choice;
+			try
+			{
+				dp = stof(choice);
+			}
+			catch (const std::exception&)
+			{
+				cout << "Please enter a number with no other characters." << endl;
+			}
+			if (dp <= 0.01 || dp > 10)
+				cout << "The number entered is outside of the acceptable range." << endl;
+			else
+				break;
+		}
+		// Radius of influence
+		while (true)
+		{
+			cout << "Please enter the radius of attraction point influence as a multiplier for displacement distance (between 1.5 and 100):" << endl;
+			cin >> choice;
+			try
+			{
+				ri = stof(choice);
+			}
+			catch (const std::exception&)
+			{
+				cout << "Please enter a number with no other characters." << endl;
+			}
+			if (ri <= 1.5 || ri > 100)
+				cout << "The number entered is outside of the acceptable range." << endl;
+			else
+			{
+				ri *= dp;
+				break;
+			}
+		}
+		// Attraction point kill distance
+		while (true)
+		{
+			cout << "Please enter the Attraction point kill distance as a multiplier for displacement distance (between 1.5 and 100):" << endl;
+			cout << "Kill distance must be lower than radius of influence." << endl;
+			cin >> choice;
+			try
+			{
+				dk = stof(choice);
+			}
+			catch (const std::exception&)
+			{
+				cout << "Please enter a number with no other characters." << endl;
+			}
+			if (dk <= 1.5 || dk > 100 || ri < dk * dp)
+				cout << "The number entered is outside of the acceptable range." << endl;
+			else
+			{
+				dk *= dp;
+				break;
+			}
+		}
+	}
+
 	// Create application
 	app application("Graphics Coursework");
 	// Set load content, update and render methods
