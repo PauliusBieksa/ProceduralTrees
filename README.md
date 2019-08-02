@@ -2,9 +2,8 @@ WASD + CTRL + SPACE controls node movement when outlining the area for the crown
 Once tree is generated DELETE reduces the node count for slight performance boost,
 then HOME adds volume to the tree
 
-To build a solution git and CMake are needed
-Getting the repo is needed to get the graphics library as a submodule
-step by step:
+To build a solution follow the steps below:
+
 1. Download this repository
 2. Update submodules with: git submodule update --init --recursive
 3. Build the project using CMake
